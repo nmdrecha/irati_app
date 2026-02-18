@@ -57,7 +57,7 @@ with tab_proceso:
                 # cargar referencia
                 df_ref = pd.read_excel(DATA_PATH)
                 # Quirón original
-                df_q = pd.read_excel(up_q, header=0)  # no usamos cabeceras para seleccionar, pero no perdemos la primera fila
+                df_q = pd.read_excel(up_q, header=None, sheet_name=0)  # no usamos cabeceras para seleccionar, pero no perdemos la primera fila
                 # Transformación paso 1
                 df_q_out, no_map = transform_quiron(df_q, df_ref)
                 st.subheader("Resultado paso 1: Quirón transformado")
