@@ -79,22 +79,29 @@ def map_concept_to_code(concept: str, ref_map: dict) -> str:
 
 
 def select_concept_and_historia(df: pd.DataFrame) -> pd.DataFrame:
-    """Extrae columnas de historia y concepto del Excel de Quirón."""
-    if df.shape[1] < 4:
-        cols = [str(c).strip().lower() for c in df.columns]
-        idx_con = next((i for i, c in enumerate(cols) if "concepto" in c), 2)
-        idx_hist = next((i for i, c in enumerate(cols)
-                         if c in ("nhc", "n.h.c", "historia", "nº historia",
-                                  "numero historia", "número historia")),
-                        3)
-    else:
-        idx_con, idx_hist = 2, 3
+    """
+    Selecciona columnas usando encabezados:
+    - 'NHC' → numero de historia
+    - 'Concepto' → concepto
+    (sin depender de posiciones)
+    """
 
-    idx_con = min(idx_con, df.shape[1] - 1)
-    idx_hist = min(idx_hist, df.shape[1] - 1)
+    # normalizar encabezados
+    cols = [str(c).strip().lower() for c in df.columns]
+
+    try:
+        idx_hist = next(i for i, c in enumerate(cols) if "nhc" in c)
+    except StopIteration:
+        raise ValueError("No se encuentra columna NHC en el Excel de Quirón")
+
+    try:
+        idx_con = next(i for i, c in enumerate(cols) if "concepto" in c)
+    except StopIteration:
+        raise ValueError("No se encuentra columna Concepto en el Excel de Quirón")
 
     out = df.iloc[:, [idx_hist, idx_con]].copy()
     out.columns = ["numero de historia", "concepto"]
+
     return out
 
 #############################################
