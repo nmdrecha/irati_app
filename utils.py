@@ -80,28 +80,55 @@ def map_concept_to_code(concept: str, ref_map: dict) -> str:
 
 def select_concept_and_historia(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Selecciona columnas usando encabezados:
-    - 'NHC' → numero de historia
-    - 'Concepto' → concepto
-    (sin depender de posiciones)
+    Selecciona columnas de 'NHC' y 'Concepto' de forma robusta.
+    - Si df ya tiene encabezados correctos, los usa.
+    - Si df viene sin encabezados (header=None) o con encabezado en una fila inferior,
+      detecta la fila de cabecera buscando 'NHC' y 'Concepto' en las primeras filas.
     """
 
-    # normalizar encabezados
-    cols = [str(c).strip().lower() for c in df.columns]
+    def _norm(x):
+        s = "" if pd.isna(x) else str(x)
+        s = s.strip().lower()
+        s = s.replace("\xa0", " ").replace("\u200b", " ")
+        s = re.sub(r"\s+", " ", s)
+        return s
 
-    try:
+    # 1) Intento directo: df.columns ya contiene "nhc" y "concepto"
+    cols = [_norm(c) for c in df.columns]
+    if any("nhc" in c for c in cols) and any("concepto" in c for c in cols):
         idx_hist = next(i for i, c in enumerate(cols) if "nhc" in c)
-    except StopIteration:
-        raise ValueError("No se encuentra columna NHC en el Excel de Quirón")
-
-    try:
         idx_con = next(i for i, c in enumerate(cols) if "concepto" in c)
-    except StopIteration:
-        raise ValueError("No se encuentra columna Concepto en el Excel de Quirón")
+        out = df.iloc[:, [idx_hist, idx_con]].copy()
+        out.columns = ["numero de historia", "concepto"]
+        return out
 
-    out = df.iloc[:, [idx_hist, idx_con]].copy()
+    # 2) Si no: buscar fila de cabecera dentro del propio contenido (primeras 50 filas)
+    max_scan = min(50, len(df))
+    header_row = None
+
+    for r in range(max_scan):
+        row_vals = [_norm(v) for v in df.iloc[r, :].tolist()]
+        has_nhc = any("nhc" in v for v in row_vals)
+        has_con = any("concepto" in v for v in row_vals)
+        if has_nhc and has_con:
+            header_row = r
+            break
+
+    if header_row is None:
+        raise ValueError("No encuentro una fila de cabecera con 'NHC' y 'Concepto' en las primeras 50 filas.")
+
+    # construir un df con cabecera correcta
+    new_cols = [_norm(v) for v in df.iloc[header_row, :].tolist()]
+    df2 = df.iloc[header_row + 1:, :].copy()
+    df2.columns = new_cols
+
+    # localizar columnas ya como nombres
+    cols2 = list(df2.columns)
+    idx_hist = next(i for i, c in enumerate(cols2) if "nhc" in c)
+    idx_con = next(i for i, c in enumerate(cols2) if "concepto" in c)
+
+    out = df2.iloc[:, [idx_hist, idx_con]].copy()
     out.columns = ["numero de historia", "concepto"]
-
     return out
 
 #############################################
